@@ -1,0 +1,140 @@
+{
+	"version": 3,
+	"routes": [
+		{
+			"handle": "filesystem"
+		},
+		{
+			"src": "^/_astro/(.*)$",
+			"headers": {
+				"cache-control": "public, max-age=31536000, immutable"
+			},
+			"continue": true
+		},
+		{
+			"src": "^/_server-islands/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/_image/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/about/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/announcements/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/attendance/([^/]+?)/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/attendance/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/messages/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/news/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/salary/([^/]+?)/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/salary/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/teachers/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/admin/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/announcements/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/attendance/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/create-admin/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/login/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/logout/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/messages/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/news/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/api/teachers/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/contact/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/gallery/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/login/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/majors/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/news/detail/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/news/([^/]+?)/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/news/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/setup-admin/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/404/?$",
+			"dest": "_render"
+		},
+		{
+			"src": "^/.*$",
+			"dest": "_render",
+			"status": 404
+		}
+	]
+}
