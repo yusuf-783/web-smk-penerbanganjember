@@ -1,0 +1,460 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { supabaseAdmin } from '../../lib/supabase';
+
+// Ambil semua data pengumuman dari Supabase
+const { data: announcements, error } = await supabaseAdmin
+  .from('announcements')
+  .select('*')
+  .order('created_at', { ascending: false });
+---
+
+<AdminLayout title="Manajemen Pengumuman">
+  <div class="space-y-6 sm:space-y-8 max-w-7xl mx-auto">
+    <!-- Header Banner (Harmonized with Admin Blue / Indigo theme) -->
+    <div class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
+      <div class="relative z-10 space-y-2">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-yellow-300 text-xs font-bold uppercase tracking-wider">
+          <span>📢</span>
+          <span>Papan Maklumat Resmi</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          Manajemen Pengumuman Sekolah
+        </h1>
+        <p class="text-blue-100 text-xs sm:text-sm max-w-xl font-light">
+          Kelola maklumat resmi, jadwal ujian, hari libur nasional, agenda dinas, dan informasi penting untuk warga sekolah.
+        </p>
+      </div>
+
+      <div class="relative z-10 flex flex-wrap items-center gap-3">
+        <button 
+          type="button" 
+          id="openCreateModalBtn"
+          class="bg-yellow-400 hover:bg-yellow-500 text-blue-950 font-black px-5 py-3 rounded-2xl text-xs sm:text-sm transition flex items-center gap-2 shadow-lg hover:scale-105 cursor-pointer"
+        >
+          <span>➕</span>
+          <span>Buat Pengumuman Baru</span>
+        </button>
+      </div>
+      <div class="absolute -right-6 -bottom-6 text-8xl opacity-10 pointer-events-none">
+        📢
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-xs border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="w-full sm:w-80 relative">
+        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 text-sm">🔍</span>
+        <input 
+          type="text" 
+          id="announcementSearchInput"
+          placeholder="Cari judul atau isi pengumuman..." 
+          class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-600 transition"
+        />
+      </div>
+
+      <div class="text-xs text-gray-500 font-medium w-full sm:w-auto text-right">
+        Total: <strong class="text-blue-900 font-bold" id="totalAnnounceCount">{announcements?.length || 0}</strong> Pengumuman
+      </div>
+    </div>
+
+    <!-- Announcements Table & List -->
+    <div class="bg-white rounded-3xl shadow-xs border border-gray-100 overflow-hidden">
+      {(!announcements || announcements.length === 0) ? (
+        <div class="text-center py-16 p-6 space-y-4">
+          <span class="text-5xl block">📢</span>
+          <h3 class="font-bold text-gray-800 text-lg">Belum Ada Pengumuman</h3>
+          <p class="text-gray-500 text-xs max-w-sm mx-auto">
+            Mulai buat maklumat atau pengumuman pertama Anda untuk warga sekolah sekarang.
+          </p>
+          <button 
+            type="button" 
+            id="emptyStateCreateBtn"
+            class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>➕ Tulis Pengumuman Pertama</span>
+          </button>
+        </div>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm" id="announceTable">
+            <thead>
+              <tr class="bg-blue-950 text-white font-bold text-xs uppercase tracking-wider">
+                <th class="py-4 px-4 text-center w-12">No</th>
+                <th class="py-4 px-4 min-w-[260px]">Judul Pengumuman</th>
+                <th class="py-4 px-4 min-w-[300px]">Ringkasan Isi</th>
+                <th class="py-4 px-4 w-40">Tanggal Dibuat</th>
+                <th class="py-4 px-4 text-center w-36">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 text-xs sm:text-sm" id="announceTbody">
+              {announcements.map((item, idx) => {
+                const formattedDate = new Date(item.created_at).toLocaleDateString('id-ID', {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                });
+
+                return (
+                  <tr class="hover:bg-blue-50/40 transition announce-row" data-title={item.title.toLowerCase()} data-content={item.content.toLowerCase()}>
+                    <td class="py-4 px-4 text-center text-gray-400 font-medium">{idx + 1}</td>
+                    <td class="py-4 px-4 font-bold text-gray-900">
+                      <div class="flex items-center gap-2">
+                        <span class="text-base text-blue-700">📢</span>
+                        <span>{item.title}</span>
+                      </div>
+                    </td>
+                    <td class="py-4 px-4 text-gray-600">
+                      <p class="line-clamp-2 leading-relaxed text-xs">
+                        {item.content}
+                      </p>
+                    </td>
+                    <td class="py-4 px-4 font-medium text-gray-500 text-xs">
+                      {formattedDate}
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                      <div class="flex items-center justify-center gap-1.5">
+                        <button 
+                          type="button" 
+                          class="view-announce-btn p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 transition cursor-pointer"
+                          title="Lihat Detail Pengumuman"
+                          data-id={item.id}
+                          data-title={item.title}
+                          data-content={item.content}
+                          data-date={formattedDate}
+                        >
+                          👁️
+                        </button>
+                        <button 
+                          type="button" 
+                          class="edit-announce-btn p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition cursor-pointer"
+                          title="Edit Pengumuman"
+                          data-id={item.id}
+                          data-title={item.title}
+                          data-content={item.content}
+                        >
+                          ✏️
+                        </button>
+                        <button 
+                          type="button" 
+                          class="delete-announce-btn p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 transition cursor-pointer"
+                          title="Hapus Pengumuman"
+                          data-id={item.id}
+                          data-title={item.title}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+
+    <!-- MODAL FORM BUAT / EDIT PENGUMUMAN -->
+    <div id="announceModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-gray-100 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in duration-150">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md" id="modalBadge">
+              Formulir
+            </span>
+            <h3 class="text-lg sm:text-xl font-extrabold text-gray-900 mt-1" id="modalTitle">
+              Tambah Pengumuman Baru
+            </h3>
+          </div>
+          <button type="button" id="closeModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1 cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <!-- Modal Form -->
+        <form id="announceForm" class="space-y-5">
+          <input type="hidden" id="announceId" value="" />
+
+          <!-- Judul Pengumuman -->
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="announceTitleInput">
+              Judul Pengumuman <span class="text-red-500">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="announceTitleInput" 
+              required
+              placeholder="Contoh: Jadwal Ujian Akhir Semester & Libur Kenaikan Kelas"
+              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-sm outline-none transition"
+            />
+          </div>
+
+          <!-- Isi Konten Pengumuman -->
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5" for="announceContentInput">
+              Isi Lengkap Pengumuman <span class="text-red-500">*</span>
+            </label>
+            <textarea 
+              id="announceContentInput" 
+              rows="7" 
+              required
+              placeholder="Tuliskan detail maklumat resmi, tanggal penting, instruksi kegiatan, atau arahan di sini..."
+              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-sm outline-none transition leading-relaxed"
+            ></textarea>
+          </div>
+
+          <div id="formMsg" class="hidden p-3.5 rounded-xl text-xs font-semibold"></div>
+
+          <!-- Modal Action Buttons -->
+          <div class="flex gap-3 pt-2">
+            <button 
+              type="button" 
+              id="cancelModalBtn"
+              class="flex-1 bg-slate-100 hover:bg-slate-200 text-gray-700 font-bold py-3 rounded-xl text-xs sm:text-sm transition cursor-pointer"
+            >
+              Batal
+            </button>
+            <button 
+              type="submit" 
+              id="submitAnnounceBtn"
+              class="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl text-xs sm:text-sm transition shadow flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span id="submitBtnText">💾 Simpan Pengumuman</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL DETAIL / PREVIEW PENGUMUMAN -->
+    <div id="viewModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-gray-100 space-y-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">📢</span>
+            <span class="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md uppercase tracking-wider">
+              Detail Pengumuman
+            </span>
+          </div>
+          <button type="button" id="closeViewModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1 cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <span class="text-[11px] font-bold text-gray-400" id="viewDate"></span>
+            <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 mt-1 leading-snug" id="viewTitle"></h2>
+          </div>
+
+          <div class="p-5 bg-slate-50 rounded-2xl border border-gray-200 text-gray-800 text-sm leading-relaxed whitespace-pre-line font-normal" id="viewContent">
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button 
+            type="button" 
+            id="okViewModalBtn"
+            class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 hidden px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold transition-all"></div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Elements
+  const modal = document.getElementById('announceModal')!;
+  const openModalBtn = document.getElementById('openCreateModalBtn');
+  const emptyStateCreateBtn = document.getElementById('emptyStateCreateBtn');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const cancelModalBtn = document.getElementById('cancelModalBtn');
+  const announceForm = document.getElementById('announceForm') as HTMLFormElement;
+
+  const modalTitle = document.getElementById('modalTitle')!;
+  const modalBadge = document.getElementById('modalBadge')!;
+  const submitBtnText = document.getElementById('submitBtnText')!;
+  const announceIdInput = document.getElementById('announceId') as HTMLInputElement;
+  const announceTitleInput = document.getElementById('announceTitleInput') as HTMLInputElement;
+  const announceContentInput = document.getElementById('announceContentInput') as HTMLTextAreaElement;
+  const formMsg = document.getElementById('formMsg')!;
+
+  const viewModal = document.getElementById('viewModal')!;
+  const closeViewModalBtn = document.getElementById('closeViewModalBtn');
+  const okViewModalBtn = document.getElementById('okViewModalBtn');
+  const viewTitle = document.getElementById('viewTitle')!;
+  const viewDate = document.getElementById('viewDate')!;
+  const viewContent = document.getElementById('viewContent')!;
+
+  const toast = document.getElementById('toast')!;
+  let toastTimer: any = null;
+
+  function showToast(msg: string, isError = false) {
+    clearTimeout(toastTimer);
+    toast.className = `fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold transition-all ${
+      isError ? 'bg-red-600 text-white' : 'bg-slate-900 text-yellow-300 border border-yellow-400/40'
+    }`;
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+
+    toastTimer = setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 2500);
+  }
+
+  // Buka Modal Tambah
+  function openCreateModal() {
+    announceForm.reset();
+    announceIdInput.value = '';
+    modalTitle.textContent = 'Tambah Pengumuman Baru';
+    modalBadge.textContent = 'Formulir Baru';
+    modalBadge.className = 'text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md';
+    submitBtnText.textContent = '💾 Simpan Pengumuman';
+    formMsg.classList.add('hidden');
+    modal.classList.remove('hidden');
+  }
+
+  openModalBtn?.addEventListener('click', openCreateModal);
+  emptyStateCreateBtn?.addEventListener('click', openCreateModal);
+
+  function closeModal() {
+    modal.classList.add('hidden');
+  }
+  closeModalBtn?.addEventListener('click', closeModal);
+  cancelModalBtn?.addEventListener('click', closeModal);
+
+  // View Modal Handler
+  document.querySelectorAll('.view-announce-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      viewTitle.textContent = btn.getAttribute('data-title') || '';
+      viewDate.textContent = '📅 Tanggal: ' + (btn.getAttribute('data-date') || '');
+      viewContent.textContent = btn.getAttribute('data-content') || '';
+      viewModal.classList.remove('hidden');
+    });
+  });
+
+  function closeViewModal() {
+    viewModal.classList.add('hidden');
+  }
+  closeViewModalBtn?.addEventListener('click', closeViewModal);
+  okViewModalBtn?.addEventListener('click', closeViewModal);
+
+  // Edit Pengumuman Handler
+  document.querySelectorAll('.edit-announce-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-id') || '';
+      const title = btn.getAttribute('data-title') || '';
+      const content = btn.getAttribute('data-content') || '';
+
+      announceIdInput.value = id;
+      announceTitleInput.value = title;
+      announceContentInput.value = content;
+
+      modalTitle.textContent = 'Edit Pengumuman';
+      modalBadge.textContent = 'Mode Edit';
+      modalBadge.className = 'text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md';
+      submitBtnText.textContent = '💾 Simpan Perubahan';
+      formMsg.classList.add('hidden');
+
+      modal.classList.remove('hidden');
+    });
+  });
+
+  // Delete Pengumuman Handler
+  document.querySelectorAll('.delete-announce-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id')!;
+      const title = btn.getAttribute('data-title') || 'pengumuman ini';
+
+      if (confirm(`Apakah Anda yakin ingin menghapus pengumuman:\n"${title}"?`)) {
+        try {
+          const res = await fetch(`/api/announcements?id=${id}`, { method: 'DELETE' });
+          const data = await res.json();
+
+          if (res.ok && data.success) {
+            showToast('✅ Pengumuman berhasil dihapus!');
+            setTimeout(() => window.location.reload(), 600);
+          } else {
+            showToast('❌ Gagal: ' + (data.error || 'Terjadi kesalahan'), true);
+          }
+        } catch (err) {
+          showToast('❌ Gangguan koneksi saat menghapus pengumuman', true);
+        }
+      }
+    });
+  });
+
+  // Submit Form (Create / Edit)
+  announceForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = announceIdInput.value;
+    const isEdit = Boolean(id);
+
+    const payload = {
+      id: id || undefined,
+      title: announceTitleInput.value,
+      content: announceContentInput.value
+    };
+
+    formMsg.className = 'p-3.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200 block';
+    formMsg.textContent = '⏳ Menyimpan data ke database...';
+
+    try {
+      const res = await fetch('/api/announcements', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        formMsg.className = 'p-3.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 block';
+        formMsg.textContent = isEdit ? '✅ Pengumuman berhasil diperbarui!' : '✅ Pengumuman berhasil disimpan!';
+        setTimeout(() => window.location.reload(), 700);
+      } else {
+        formMsg.className = 'p-3.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block';
+        formMsg.textContent = '❌ Gagal: ' + (data.error || 'Terjadi kesalahan');
+      }
+    } catch (err) {
+      formMsg.className = 'p-3.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200 block';
+      formMsg.textContent = '❌ Gangguan koneksi ke server.';
+    }
+  });
+
+  // Search Filter
+  const searchInput = document.getElementById('announcementSearchInput') as HTMLInputElement;
+  const rows = document.querySelectorAll('.announce-row');
+  const countEl = document.getElementById('totalAnnounceCount');
+
+  searchInput?.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase().trim();
+    let visible = 0;
+
+    rows.forEach(row => {
+      const tr = row as HTMLElement;
+      const title = tr.getAttribute('data-title') || '';
+      const content = tr.getAttribute('data-content') || '';
+
+      if (!q || title.includes(q) || content.includes(q)) {
+        tr.classList.remove('hidden');
+        visible++;
+      } else {
+        tr.classList.add('hidden');
+      }
+    });
+
+    if (countEl) {
+      countEl.textContent = String(visible);
+    }
+  });
+</script>

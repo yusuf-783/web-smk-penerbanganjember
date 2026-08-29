@@ -1,17 +1,243 @@
 ---
+export const prerender = false;
 
+import PublicLayout from '../layouts/PublicLayout.astro';
+import Hero from '../components/public/Hero.astro';
+import NewsCard from '../components/public/NewsCard.astro';
+import { supabaseAdmin } from '../lib/supabase';
+
+const { data: school } = await supabaseAdmin.from('school_info').select('*').single();
+const { data: dbNews } = await supabaseAdmin.from('news').select('*').order('published_at', { ascending: false }).limit(3);
+const { data: announcements } = await supabaseAdmin.from('announcements').select('*').order('created_at', { ascending: false }).limit(4);
+
+const defaultNews = [
+  {
+    id: '1',
+    title: 'Penerimaan Peserta Didik Baru (PPDB) SMK Penerbangan Jember Tahun Ajaran Baru Dibuka',
+    slug: 'ppdb-smk-penerbangan-jember-dibuka',
+    content: 'Pendaftaran gelombang utama telah dibuka dengan kuota terbatas dan beasiswa prestasi bagi calon taruna-taruni berpotensi di bidang teknologi kedirgantaraan.',
+    image_url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=800&q=80',
+    published_at: new Date().toISOString(),
+    category: 'Pengumuman'
+  },
+  {
+    id: '2',
+    title: 'Kunjungan Edukasi dan Praktik Lapangan Taruna SMK Penerbangan di Hangar Bandara',
+    slug: 'kunjungan-edukasi-hangar-bandara',
+    content: 'Taruna konsentrasi Electrical Avionics melaksanakan pengamatan langsung prosedur maintenance avionik, radar, dan safety pesawat komersial di pangkalan bandara mitra.',
+    image_url: 'https://images.unsplash.com/photo-1583422409516-2895a77efded?auto=format&fit=crop&w=800&q=80',
+    published_at: new Date(Date.now() - 86400000 * 3).toISOString(),
+    category: 'Kegiatan'
+  },
+  {
+    id: '3',
+    title: 'Prestasi Membanggakan: Taruna SMK Penerbangan Jember Raih Juara LKS Tingkat Provinsi',
+    slug: 'prestasi-juara-lks-provinsi',
+    content: 'Selamat kepada perwakilan taruna yang sukses mengukir prestasi gemilang dalam Lomba Kompetensi Siswa bidang kelistrikan dan instrumentasi aviasi.',
+    image_url: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&q=80',
+    published_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+    category: 'Prestasi'
+  }
+];
+
+const news = (dbNews && dbNews.length > 0) ? dbNews : defaultNews;
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<PublicLayout title="Beranda" description="Website Resmi SMK Penerbangan Jember - Spesialisasi Pendidikan Kejuruan Electrical Avionics (Kelistrikan & Elektronika Pesawat Udara).">
+  <!-- Hero Section -->
+  <Hero schoolName={school?.school_name} vision={school?.vision} />
+
+  <!-- Stats Section -->
+  <section class="py-12 sm:py-16 bg-gray-50 border-b border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm hover:shadow-md transition border border-gray-100 text-center">
+          <div class="text-3xl sm:text-4xl lg:text-5xl font-black text-blue-900 mb-1">10+</div>
+          <div class="text-gray-600 text-xs sm:text-sm font-semibold">Instruktur Berlisensi</div>
+        </div>
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm hover:shadow-md transition border border-gray-100 text-center">
+          <div class="text-3xl sm:text-4xl lg:text-5xl font-black text-blue-900 mb-1">100%</div>
+          <div class="text-gray-600 text-xs sm:text-sm font-semibold">Fokus Electrical Avionics</div>
+        </div>
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm hover:shadow-md transition border border-gray-100 text-center">
+          <div class="text-3xl sm:text-4xl lg:text-5xl font-black text-blue-900 mb-1">500+</div>
+          <div class="text-gray-600 text-xs sm:text-sm font-semibold">Taruna-Taruni Aktif</div>
+        </div>
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm hover:shadow-md transition border border-gray-100 text-center">
+          <div class="text-3xl sm:text-4xl lg:text-5xl font-black text-blue-900 mb-1">98%</div>
+          <div class="text-gray-600 text-xs sm:text-sm font-semibold">Terserap Industri & Aviasi</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pengumuman Section -->
+  {announcements && announcements.length > 0 && (
+    <section class="py-12 sm:py-16 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-2xl mx-auto mb-10">
+          <span class="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">Informasi</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 mt-2">📢 Pengumuman Resmi Sekolah</h2>
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+          {announcements.map(ann => (
+            <div class="bg-blue-50/40 border-l-4 border-blue-700 p-6 rounded-r-2xl shadow-sm hover:shadow-md transition border-t border-r border-b border-blue-100">
+              <h3 class="font-bold text-gray-900 text-base sm:text-lg mb-1.5">{ann.title}</h3>
+              <p class="text-gray-600 text-sm leading-relaxed whitespace-pre-line">{ann.content}</p>
+              <p class="text-xs text-blue-900/80 mt-4 flex items-center gap-1.5 font-medium">
+                <span>🕒</span> 
+                <span>{new Date(ann.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- FEATURED MAJOR SHOWCASE: ELECTRICAL AVIONICS -->
+  <section class="py-16 sm:py-24 bg-slate-900 text-white relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-12">
+      <!-- Section Header -->
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div class="space-y-3 max-w-3xl">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-yellow-400 text-blue-950 text-xs font-black uppercase tracking-wider shadow">
+            <span>⚡</span>
+            <span>Program Keahlian Spesialisasi Tunggal</span>
+          </div>
+          <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight text-white">
+            Penerbangan: <span class="text-yellow-300">Electrical Avionics</span>
+          </h2>
+          <p class="text-blue-200 text-sm sm:text-base leading-relaxed font-light">
+            SMK Penerbangan Jember berfokus secara mendalam pada <strong>Teknik Kelistrikan dan Instrumentasi Elektronika Pesawat Udara (Avionics)</strong> untuk mencetak teknisi kedirgantaraan tingkat ahli yang sangat dicari oleh maskapai penerbangan dan industri MRO global.
+          </p>
+        </div>
+        <div class="shrink-0">
+          <a 
+            href="/majors" 
+            class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg hover:shadow-blue-500/30 transition text-sm cursor-pointer"
+          >
+            <span>Detail Kurikulum & Bengkel</span>
+            <span>→</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 4 Core Pillars Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Pillar 1 -->
+        <div class="bg-white/5 border border-white/10 hover:border-yellow-400/40 p-6 sm:p-8 rounded-3xl backdrop-blur-sm space-y-4 hover:-translate-y-1 transition duration-300">
+          <div class="w-14 h-14 bg-gradient-to-tr from-yellow-400 to-amber-500 text-blue-950 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+            ⚡
+          </div>
+          <h3 class="text-lg font-bold text-white">Distribusi Daya Listrik</h3>
+          <p class="text-xs sm:text-sm text-blue-200/80 leading-relaxed">
+            Penguasaan generator pembangkit AC/DC, transformer rectifier, inverter, bus bar, dan sistem kabel penerbangan (aircraft wiring harness).
+          </p>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="bg-white/5 border border-white/10 hover:border-yellow-400/40 p-6 sm:p-8 rounded-3xl backdrop-blur-sm space-y-4 hover:-translate-y-1 transition duration-300">
+          <div class="w-14 h-14 bg-gradient-to-tr from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+            📟
+          </div>
+          <h3 class="text-lg font-bold text-white">Glass Cockpit & Sensor</h3>
+          <p class="text-xs sm:text-sm text-blue-200/80 leading-relaxed">
+            Pemeliharaan instrumen penerbangan digital modern (PFD, MFD, EICAS), sistem pitot-static, altimeter, dan sensor giroskopik pesawat.
+          </p>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="bg-white/5 border border-white/10 hover:border-yellow-400/40 p-6 sm:p-8 rounded-3xl backdrop-blur-sm space-y-4 hover:-translate-y-1 transition duration-300">
+          <div class="w-14 h-14 bg-gradient-to-tr from-cyan-400 to-blue-600 text-blue-950 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+            📡
+          </div>
+          <h3 class="text-lg font-bold text-white">Navigasi Satelit & Radar</h3>
+          <p class="text-xs sm:text-sm text-blue-200/80 leading-relaxed">
+            Instalasi dan kalibrasi perangkat transmisi radio VHF/HF, radio altimeter, transponder ATC, sistem pendaratan instrumen (ILS), dan radar cuaca.
+          </p>
+        </div>
+
+        <!-- Pillar 4 -->
+        <div class="bg-white/5 border border-white/10 hover:border-yellow-400/40 p-6 sm:p-8 rounded-3xl backdrop-blur-sm space-y-4 hover:-translate-y-1 transition duration-300">
+          <div class="w-14 h-14 bg-gradient-to-tr from-emerald-400 to-teal-600 text-blue-950 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg">
+            🕹️
+          </div>
+          <h3 class="text-lg font-bold text-white">Autopilot & Flight Control</h3>
+          <p class="text-xs sm:text-sm text-blue-200/80 leading-relaxed">
+            Pengaturan sistem pemandu penerbangan otomatis (AFCS), flight director, servo actuator, dan komputer navigasi terpadu (FMS).
+          </p>
+        </div>
+      </div>
+
+      <!-- Career & Industry Badge Strip -->
+      <div class="bg-gradient-to-r from-blue-800/60 to-indigo-900/60 border border-blue-500/30 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-1 text-center md:text-left">
+          <span class="text-xs font-extrabold uppercase text-yellow-300 tracking-wider">Peluang Karir Lulusan:</span>
+          <p class="text-sm sm:text-base text-white font-medium">
+            Avionics Maintenance Engineer • Radar Specialist • Airport Communication Operator • Teknisi MRO Maskapai • Korps Kedirgantaraan TNI AU
+          </p>
+        </div>
+        <a 
+          href="/contact" 
+          class="bg-yellow-400 hover:bg-yellow-300 text-blue-950 font-black px-6 py-3 rounded-xl shadow-lg transition text-xs sm:text-sm whitespace-nowrap cursor-pointer hover:scale-105"
+        >
+          Daftar PPDB Sekarang ✈️
+        </a>
+      </div>
+    </div>
+
+    <!-- Decorative background elements -->
+    <div class="absolute -right-20 -top-20 text-[260px] opacity-5 pointer-events-none select-none text-blue-400">
+      ⚡
+    </div>
+  </section>
+
+  <!-- Berita Section -->
+  <section class="py-16 sm:py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">Kabar Sekolah</span>
+          <h2 class="text-2xl sm:text-4xl font-extrabold text-gray-900 mt-2.5">📰 Berita & Aktivitas Taruna</h2>
+          <p class="text-gray-600 text-sm sm:text-base mt-1">Ketahui kegiatan praktikum laboratorium, kunjungan industri, dan torehan prestasi.</p>
+        </div>
+        <a href="/news" class="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-900 font-bold text-sm bg-gray-50 px-4 py-2 rounded-xl shadow-sm border border-gray-200 hover:shadow transition">
+          <span>Lihat Semua Berita</span>
+          <span>→</span>
+        </a>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+        {news.map(item => (
+          <NewsCard item={item} />
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="py-16 sm:py-24 bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-950 text-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/20 text-yellow-300 text-xs font-semibold uppercase tracking-wider">
+        <span>✈️</span>
+        <span>Masa Depan Ahli Aviasi Dimulai Di Sini</span>
+      </div>
+      <h2 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight">
+        Wujudkan Impianmu Menjadi Teknisi Avionik Profesional
+      </h2>
+      <p class="text-base sm:text-xl text-blue-100 font-light leading-relaxed max-w-2xl mx-auto">
+        Kembangkan potensi dan keahlianmu di bidang kelistrikan dan instrumentasi penerbangan bersama instruktur berlisensi resmi.
+      </p>
+      <div class="pt-4 flex flex-wrap justify-center gap-4">
+        <a href="/contact" class="bg-yellow-400 text-blue-950 px-8 py-4 rounded-xl font-extrabold text-base hover:bg-yellow-300 transition shadow-xl hover:shadow-yellow-400/40 hover:-translate-y-0.5 duration-150">
+          Konsultasi & Pendaftaran PPDB
+        </a>
+        <a href="/about" class="border-2 border-white/40 text-white px-8 py-4 rounded-xl font-bold text-base hover:bg-white hover:text-blue-950 transition backdrop-blur-sm">
+          Pelajari Profil Sekolah
+        </a>
+      </div>
+    </div>
+  </section>
+</PublicLayout>

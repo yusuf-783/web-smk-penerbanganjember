@@ -1,0 +1,556 @@
+---
+import { supabaseAdmin } from '../../lib/supabase';
+
+interface Props {
+  month: number;
+  year: number;
+  selectedDay?: number;
+}
+
+const { month, year, selectedDay = 1 } = Astro.props;
+const HOURLY_RATE = 5000; // Rp 5.000 per jam
+
+// Ambil semua data guru
+const { data: teachers } = await supabaseAdmin
+  .from('teachers')
+  .select('*')
+  .order('code', { ascending: true, nullsFirst: false });
+
+// Ambil semua data absensi pada bulan & tahun ini
+const { data: attendance } = await supabaseAdmin
+  .from('attendance')
+  .select('*')
+  .eq('month', month)
+  .eq('year', year);
+
+const daysInMonth = new Date(year, month, 0).getDate();
+
+// Map data absensi per guru
+const attendanceByTeacher = teachers?.reduce((acc, teacher) => {
+  acc[teacher.id] = attendance?.filter(a => a.teacher_id === teacher.id) || [];
+  return acc;
+}, {} as Record<string, typeof attendance>) || {};
+
+const formatRupiah = (amount: number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+};
+---
+
+<div class="space-y-6" id="attendanceContainer" data-month={month} data-year={year} data-days-in-month={daysInMonth}>
+  {(!teachers || teachers.length === 0) ? (
+    <div class="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm space-y-4">
+      <div class="w-16 h-16 bg-blue-50 text-blue-700 rounded-2xl flex items-center justify-center text-3xl mx-auto">
+        👨‍🏫
+      </div>
+      <div>
+        <h3 class="text-xl font-bold text-gray-900">Belum Ada Data Guru</h3>
+        <p class="text-gray-500 text-sm mt-1">Tambahkan nama dan kode guru terlebih dahulu sebelum mengisi absensi.</p>
+      </div>
+      <a 
+        href="/admin/teachers" 
+        class="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-bold px-6 py-3 rounded-xl transition shadow"
+      >
+        <span>➕ Tambah Data Guru</span>
+      </a>
+    </div>
+  ) : (
+    <div class="space-y-6">
+      <!-- Pilihan Mode Tampilan & Dropdown Tanggal -->
+      <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <!-- Dropdown Tanggal Aktif -->
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-700 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow">
+              📅
+            </div>
+            <div>
+              <label for="daySelect" class="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+                Pilih Tanggal Absensi:
+              </label>
+              <select 
+                id="daySelect"
+                class="mt-1 bg-blue-50 border border-blue-200 text-blue-950 font-black text-sm rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer shadow-sm"
+              >
+                {Array.from({ length: daysInMonth }, (_, i) => {
+                  const dayNum = i + 1;
+                  return (
+                    <option value={dayNum} selected={dayNum === selectedDay}>
+                      Tanggal {dayNum} (Bulan {month}/{year})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          <div class="hidden sm:block h-10 w-px bg-gray-200"></div>
+
+          <!-- Info Tarif -->
+          <div class="text-xs">
+            <span class="text-gray-500 font-medium block">Tarif Honor:</span>
+            <span class="bg-yellow-400 text-blue-950 font-black px-2 py-0.5 rounded-md inline-block mt-0.5">
+              Rp 5.000 / Jam
+            </span>
+          </div>
+        </div>
+
+        <!-- Mode Toggle & Quick Fill -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button 
+            type="button" 
+            id="viewModeDailyBtn"
+            class="bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow"
+          >
+            📋 Mode Harian (Dropdown 1-8)
+          </button>
+          <button 
+            type="button" 
+            id="viewModeMatrixBtn"
+            class="bg-slate-100 hover:bg-slate-200 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition"
+          >
+            🗓️ Mode Matriks Kalender (1-{daysInMonth})
+          </button>
+        </div>
+      </div>
+
+      <!-- Save Status Floating Toast -->
+      <div id="saveToast" class="fixed bottom-6 right-6 z-50 hidden px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold transition-all animate-bounce"></div>
+
+      <!-- ======================================================== -->
+      <!-- VIEW 1: TABEL INPUT HARIAN DENGAN DROPDOWN (1-8 & 0)     -->
+      <!-- ======================================================== -->
+      <div id="dailyViewWrapper" class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-5 bg-slate-50 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-extrabold text-gray-900 text-base flex items-center gap-2">
+              <span>Input Jam Mengajar:</span>
+              <span class="text-blue-700 bg-blue-100 px-3 py-0.5 rounded-lg" id="currentSelectedDayBadge">
+                Tanggal {selectedDay}
+              </span>
+            </h3>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Pilih berapa jam setiap guru mengajar pada tanggal ini. Pilihan: <strong>Tidak Hadir (0)</strong> atau <strong>1 s/d 8 Jam</strong>.
+            </p>
+          </div>
+
+          <!-- Quick set all to 8 or 0 -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500 font-medium hidden sm:inline">Set Cepat:</span>
+            <button 
+              type="button" 
+              class="quick-set-btn text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-1.5 rounded-lg transition"
+              data-hours="8"
+            >
+              Semua 8 Jam
+            </button>
+            <button 
+              type="button" 
+              class="quick-set-btn text-xs font-bold bg-slate-100 hover:bg-slate-200 text-gray-700 border border-gray-200 px-2.5 py-1.5 rounded-lg transition"
+              data-hours="0"
+            >
+              Reset 0 Jam
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm" id="dailyTable">
+            <thead>
+              <tr class="bg-blue-900 text-white font-bold text-xs uppercase tracking-wider">
+                <th class="py-3.5 px-4 text-center w-12">No</th>
+                <th class="py-3.5 px-4 w-28">Kode Guru</th>
+                <th class="py-3.5 px-4 min-w-[200px]">Nama Lengkap Guru</th>
+                <th class="py-3.5 px-4 min-w-[220px] bg-blue-950 text-center">
+                  Jam Mengajar Tanggal Ini
+                </th>
+                <th class="py-3.5 px-4 text-right min-w-[140px]">Honor Hari Ini</th>
+                <th class="py-3.5 px-4 text-center min-w-[140px]">Total Jam (Bulan Ini)</th>
+                <th class="py-3.5 px-6 text-right min-w-[160px] bg-yellow-500 text-blue-950">Estimasi Gaji (Bulan Ini)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              {teachers.map((teacher: any, idx: number) => {
+                const teacherRecords = attendanceByTeacher[teacher.id] || [];
+                const totalMonthHours = teacherRecords.reduce((sum: number, a: any) => sum + (Number(a.hours) || 0), 0);
+                const totalMonthSalary = totalMonthHours * HOURLY_RATE;
+
+                // Cari catatan tanggal yang aktif
+                const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+                const todayRecord = teacherRecords.find((a: any) => a.date === dateStr || new Date(a.date).getDate() === selectedDay);
+                const todayHours = todayRecord?.hours ?? 0;
+                const todaySalary = todayHours * HOURLY_RATE;
+
+                return (
+                  <tr class="hover:bg-blue-50/40 transition group" data-teacher-row={teacher.id}>
+                    <td class="py-3.5 px-4 text-center text-gray-500 font-medium">{idx + 1}</td>
+                    <td class="py-3.5 px-4 font-mono font-bold text-blue-700">
+                      <span class="bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-md">
+                        {teacher.code || '-'}
+                      </span>
+                    </td>
+                    <td class="py-3.5 px-4 font-bold text-gray-900">{teacher.name}</td>
+                    <td class="py-3.5 px-4 text-center bg-slate-50/60">
+                      <select 
+                        class="daily-hour-select w-full max-w-[200px] font-bold text-xs sm:text-sm rounded-xl px-3 py-2 border outline-none focus:ring-2 focus:ring-blue-600 transition cursor-pointer shadow-sm"
+                        data-teacher-id={teacher.id}
+                        data-current-hours={todayHours}
+                      >
+                        <option value="0" selected={todayHours === 0}>❌ Tidak Hadir (0 Jam)</option>
+                        <option value="1" selected={todayHours === 1}>🟢 1 Jam Mengajar</option>
+                        <option value="2" selected={todayHours === 2}>🟢 2 Jam Mengajar</option>
+                        <option value="3" selected={todayHours === 3}>🟢 3 Jam Mengajar</option>
+                        <option value="4" selected={todayHours === 4}>🟢 4 Jam Mengajar</option>
+                        <option value="5" selected={todayHours === 5}>🟡 5 Jam Mengajar</option>
+                        <option value="6" selected={todayHours === 6}>🟡 6 Jam Mengajar</option>
+                        <option value="7" selected={todayHours === 7}>🔵 7 Jam Mengajar</option>
+                        <option value="8" selected={todayHours === 8}>🟣 8 Jam Mengajar</option>
+                      </select>
+                    </td>
+                    <td class="py-3.5 px-4 text-right font-bold text-gray-900">
+                      <span class="daily-salary-text" data-teacher-id={teacher.id}>
+                        {formatRupiah(todaySalary)}
+                      </span>
+                    </td>
+                    <td class="py-3.5 px-4 text-center font-extrabold text-blue-900 bg-blue-50/50">
+                      <span class="total-hours-text" data-teacher-id={teacher.id}>
+                        {totalMonthHours}
+                      </span> Jam
+                    </td>
+                    <td class="py-3.5 px-6 text-right font-black text-emerald-700 bg-emerald-50/40 text-base">
+                      <span class="total-salary-text" data-teacher-id={teacher.id}>
+                        {formatRupiah(totalMonthSalary)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- VIEW 2: MATRIKS KALENDER LENGKAP (1 S/D 31)             -->
+      <!-- ======================================================== -->
+      <div id="matrixViewWrapper" class="hidden bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-5 bg-slate-50 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 class="font-extrabold text-gray-900 text-base">Matriks Kalender Lengkap (Tanggal 1 s/d {daysInMonth})</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Ketik langsung angka jam mengajar di setiap kotak tanggal.</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-slate-200 rounded"></span> 0</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-emerald-500 rounded"></span> 1-4</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-amber-500 rounded"></span> 5-6</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-600 rounded"></span> 7-8</span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse text-xs text-left">
+            <thead>
+              <tr class="bg-blue-900 text-white font-bold">
+                <th class="border-b border-r border-blue-800 p-2.5 text-center sticky left-0 bg-blue-900 z-20 w-10">No</th>
+                <th class="border-b border-r border-blue-800 p-2.5 sticky left-10 bg-blue-900 z-20 w-24">Kode</th>
+                <th class="border-b border-r border-blue-800 p-2.5 sticky left-34 bg-blue-900 z-20 min-w-[180px]">Nama Guru</th>
+                {Array.from({ length: daysInMonth }, (_, i) => (
+                  <th class="border-b border-r border-blue-800 p-2 text-center min-w-[40px] max-w-[40px]">{i + 1}</th>
+                ))}
+                <th class="border-b border-r border-blue-800 p-2.5 text-center bg-blue-950 min-w-[80px]">Total</th>
+                <th class="border-b border-blue-800 p-2.5 text-right bg-yellow-500 text-blue-950 min-w-[130px]">Gaji Bulan Ini</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              {teachers.map((teacher: any, index: number) => {
+                const teacherRecords = attendanceByTeacher[teacher.id] || [];
+                const totalHours = teacherRecords.reduce((sum: number, a: any) => sum + (Number(a.hours) || 0), 0);
+                const totalSalary = totalHours * HOURLY_RATE;
+                
+                return (
+                  <tr class="hover:bg-blue-50/50 transition group">
+                    <td class="border-b border-r border-gray-200 p-2 text-center font-medium text-gray-500 sticky left-0 bg-white group-hover:bg-blue-50/50 z-10">
+                      {index + 1}
+                    </td>
+                    <td class="border-b border-r border-gray-200 p-2 font-mono font-bold text-blue-700 sticky left-10 bg-white group-hover:bg-blue-50/50 z-10">
+                      <span class="bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        {teacher.code || '-'}
+                      </span>
+                    </td>
+                    <td class="border-b border-r border-gray-200 p-2 font-bold text-gray-900 sticky left-34 bg-white group-hover:bg-blue-50/50 z-10 whitespace-nowrap">
+                      {teacher.name}
+                    </td>
+                    {Array.from({ length: daysInMonth }, (_, i) => {
+                      const day = i + 1;
+                      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const record = teacherRecords.find((a: any) => a.date === dateStr || new Date(a.date).getDate() === day);
+                      const hours = record?.hours || 0;
+                      
+                      const cellBg = hours === 0 ? 'bg-slate-100 text-gray-400' :
+                        hours <= 4 ? 'bg-emerald-500 text-white font-bold' :
+                        hours <= 6 ? 'bg-amber-500 text-white font-bold' :
+                        hours <= 8 ? 'bg-blue-600 text-white font-bold' :
+                        'bg-purple-600 text-white font-bold';
+
+                      return (
+                        <td class="border-b border-r border-gray-200 p-1 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max="24"
+                            value={hours}
+                            data-matrix-teacher-id={teacher.id}
+                            data-matrix-day={day}
+                            class={`w-9 h-8 text-center rounded-lg text-xs transition duration-150 border-0 outline-none focus:ring-2 focus:ring-blue-600 focus:scale-105 cursor-pointer font-bold ${cellBg}`}
+                          />
+                        </td>
+                      );
+                    })}
+                    <td class="border-b border-r border-gray-200 p-2 text-center font-black text-blue-900 bg-blue-50/80">
+                      <span class="matrix-total-hours" data-teacher-id={teacher.id}>{totalHours}</span> j
+                    </td>
+                    <td class="border-b border-gray-200 p-2 text-right font-black text-emerald-700 bg-emerald-50/50 whitespace-nowrap">
+                      <span class="matrix-total-salary" data-teacher-id={teacher.id}>{formatRupiah(totalSalary)}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )}
+</div>
+
+<script>
+  const HOURLY_RATE = 5000;
+  const container = document.getElementById('attendanceContainer')!;
+  const month = parseInt(container?.getAttribute('data-month') || '1');
+  const year = parseInt(container?.getAttribute('data-year') || '2026');
+  const daysInMonth = parseInt(container?.getAttribute('data-days-in-month') || '31');
+
+  const daySelect = document.getElementById('daySelect') as HTMLSelectElement;
+  const currentSelectedDayBadge = document.getElementById('currentSelectedDayBadge')!;
+  const toast = document.getElementById('saveToast')!;
+  let toastTimer: any = null;
+
+  // View toggle elements
+  const dailyBtn = document.getElementById('viewModeDailyBtn')!;
+  const matrixBtn = document.getElementById('viewModeMatrixBtn')!;
+  const dailyView = document.getElementById('dailyViewWrapper')!;
+  const matrixView = document.getElementById('matrixViewWrapper')!;
+
+  dailyBtn?.addEventListener('click', () => {
+    dailyView.classList.remove('hidden');
+    matrixView.classList.add('hidden');
+    dailyBtn.className = 'bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow';
+    matrixBtn.className = 'bg-slate-100 hover:bg-slate-200 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition';
+  });
+
+  matrixBtn?.addEventListener('click', () => {
+    matrixView.classList.remove('hidden');
+    dailyView.classList.add('hidden');
+    matrixBtn.className = 'bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow';
+    dailyBtn.className = 'bg-slate-100 hover:bg-slate-200 text-gray-700 px-4 py-2 rounded-xl text-xs font-bold transition';
+  });
+
+  function showToast(text: string, isError = false) {
+    clearTimeout(toastTimer);
+    toast.className = `fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold transition-all ${
+      isError 
+        ? 'bg-red-600 text-white' 
+        : 'bg-blue-950 text-yellow-300 border border-yellow-400/40'
+    }`;
+    toast.textContent = text;
+    toast.classList.remove('hidden');
+
+    toastTimer = setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 2500);
+  }
+
+  function formatIDR(amount: number) {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+  }
+
+  // Update styling of daily dropdown based on hours
+  function styleDropdown(selectEl: HTMLSelectElement, hours: number) {
+    if (hours === 0) {
+      selectEl.className = 'daily-hour-select w-full max-w-[200px] font-bold text-xs sm:text-sm rounded-xl px-3 py-2 border outline-none focus:ring-2 focus:ring-blue-600 transition cursor-pointer shadow-sm bg-slate-100 text-gray-500 border-gray-200';
+    } else if (hours <= 4) {
+      selectEl.className = 'daily-hour-select w-full max-w-[200px] font-bold text-xs sm:text-sm rounded-xl px-3 py-2 border outline-none focus:ring-2 focus:ring-blue-600 transition cursor-pointer shadow-sm bg-emerald-50 text-emerald-800 border-emerald-300';
+    } else if (hours <= 6) {
+      selectEl.className = 'daily-hour-select w-full max-w-[200px] font-bold text-xs sm:text-sm rounded-xl px-3 py-2 border outline-none focus:ring-2 focus:ring-blue-600 transition cursor-pointer shadow-sm bg-amber-50 text-amber-800 border-amber-300';
+    } else {
+      selectEl.className = 'daily-hour-select w-full max-w-[200px] font-bold text-xs sm:text-sm rounded-xl px-3 py-2 border outline-none focus:ring-2 focus:ring-blue-600 transition cursor-pointer shadow-sm bg-blue-50 text-blue-800 border-blue-300';
+    }
+  }
+
+  // Handle Day Dropdown Selection Change
+  daySelect?.addEventListener('change', () => {
+    const day = parseInt(daySelect.value);
+    currentSelectedDayBadge.textContent = `Tanggal ${day}`;
+
+    // Update each teacher's dropdown based on the matrix table value for this day
+    document.querySelectorAll('.daily-hour-select').forEach(select => {
+      const selectEl = select as HTMLSelectElement;
+      const teacherId = selectEl.getAttribute('data-teacher-id')!;
+      
+      const matrixInput = document.querySelector(`input[data-matrix-teacher-id="${teacherId}"][data-matrix-day="${day}"]`) as HTMLInputElement;
+      const currentHours = matrixInput ? parseInt(matrixInput.value) || 0 : 0;
+
+      selectEl.value = String(Math.min(8, Math.max(0, currentHours)));
+      styleDropdown(selectEl, currentHours);
+
+      // Update today's salary text
+      const todaySalarySpan = document.querySelector(`.daily-salary-text[data-teacher-id="${teacherId}"]`);
+      if (todaySalarySpan) todaySalarySpan.textContent = formatIDR(currentHours * HOURLY_RATE);
+    });
+  });
+
+  // Apply initial styling to all dropdowns
+  document.querySelectorAll('.daily-hour-select').forEach(select => {
+    const selectEl = select as HTMLSelectElement;
+    const hours = parseInt(selectEl.value) || 0;
+    styleDropdown(selectEl, hours);
+  });
+
+  // Handle Daily Dropdown Change & Save
+  async function saveTeacherAttendance(teacherId: string, day: number, hours: number) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacher_id: teacherId,
+          date: dateStr,
+          hours: hours,
+          month: month,
+          year: year
+        })
+      });
+
+      if (res.ok) {
+        showToast(`💾 Tersimpan: Tgl ${day} diisi ${hours} jam (${formatIDR(hours * HOURLY_RATE)})`);
+      } else {
+        showToast('❌ Gagal menyimpan data absensi', true);
+      }
+    } catch (err) {
+      showToast('❌ Gangguan koneksi saat menyimpan', true);
+    }
+  }
+
+  function recalculateTeacherTotals(teacherId: string) {
+    const matrixInputs = document.querySelectorAll(`input[data-matrix-teacher-id="${teacherId}"]`) as NodeListOf<HTMLInputElement>;
+    let total = 0;
+    matrixInputs.forEach(inp => {
+      total += parseInt(inp.value) || 0;
+    });
+
+    // Update Daily View Spans
+    const hoursText = document.querySelector(`.total-hours-text[data-teacher-id="${teacherId}"]`);
+    if (hoursText) hoursText.textContent = String(total);
+
+    const salaryText = document.querySelector(`.total-salary-text[data-teacher-id="${teacherId}"]`);
+    if (salaryText) salaryText.textContent = formatIDR(total * HOURLY_RATE);
+
+    // Update Matrix View Spans
+    const mHours = document.querySelector(`.matrix-total-hours[data-teacher-id="${teacherId}"]`);
+    if (mHours) mHours.textContent = String(total);
+
+    const mSalary = document.querySelector(`.matrix-total-salary[data-teacher-id="${teacherId}"]`);
+    if (mSalary) mSalary.textContent = formatIDR(total * HOURLY_RATE);
+  }
+
+  document.querySelectorAll('.daily-hour-select').forEach(select => {
+    select.addEventListener('change', async (e) => {
+      const selectEl = e.target as HTMLSelectElement;
+      const teacherId = selectEl.getAttribute('data-teacher-id')!;
+      const day = parseInt(daySelect.value) || 1;
+      const hours = parseInt(selectEl.value) || 0;
+
+      styleDropdown(selectEl, hours);
+
+      // Sync to matrix input
+      const matrixInput = document.querySelector(`input[data-matrix-teacher-id="${teacherId}"][data-matrix-day="${day}"]`) as HTMLInputElement;
+      if (matrixInput) {
+        matrixInput.value = String(hours);
+        matrixInput.className = `w-9 h-8 text-center rounded-lg text-xs transition duration-150 border-0 outline-none focus:ring-2 focus:ring-blue-600 focus:scale-105 cursor-pointer font-bold ${
+          hours === 0 ? 'bg-slate-100 text-gray-400' :
+          hours <= 4 ? 'bg-emerald-500 text-white font-bold' :
+          hours <= 6 ? 'bg-amber-500 text-white font-bold' :
+          'bg-blue-600 text-white font-bold'
+        }`;
+      }
+
+      // Update today salary text
+      const todaySalarySpan = document.querySelector(`.daily-salary-text[data-teacher-id="${teacherId}"]`);
+      if (todaySalarySpan) todaySalarySpan.textContent = formatIDR(hours * HOURLY_RATE);
+
+      recalculateTeacherTotals(teacherId);
+      await saveTeacherAttendance(teacherId, day, hours);
+    });
+  });
+
+  // Handle Quick Set All Buttons
+  document.querySelectorAll('.quick-set-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const targetHours = parseInt(btn.getAttribute('data-hours')!) || 0;
+      const day = parseInt(daySelect.value) || 1;
+
+      if (confirm(`Terapkan ${targetHours} jam untuk SEMUA guru pada Tanggal ${day}?`)) {
+        const selects = document.querySelectorAll('.daily-hour-select') as NodeListOf<HTMLSelectElement>;
+        for (const selectEl of selects) {
+          selectEl.value = String(targetHours);
+          styleDropdown(selectEl, targetHours);
+          const teacherId = selectEl.getAttribute('data-teacher-id')!;
+
+          const matrixInput = document.querySelector(`input[data-matrix-teacher-id="${teacherId}"][data-matrix-day="${day}"]`) as HTMLInputElement;
+          if (matrixInput) {
+            matrixInput.value = String(targetHours);
+          }
+
+          const todaySalarySpan = document.querySelector(`.daily-salary-text[data-teacher-id="${teacherId}"]`);
+          if (todaySalarySpan) todaySalarySpan.textContent = formatIDR(targetHours * HOURLY_RATE);
+
+          recalculateTeacherTotals(teacherId);
+          await saveTeacherAttendance(teacherId, day, targetHours);
+        }
+      }
+    });
+  });
+
+  // Handle Matrix Input Changes directly
+  document.querySelectorAll('input[data-matrix-teacher-id]').forEach(input => {
+    input.addEventListener('change', async (e) => {
+      const inp = e.target as HTMLInputElement;
+      const teacherId = inp.getAttribute('data-matrix-teacher-id')!;
+      const day = parseInt(inp.getAttribute('data-matrix-day')!);
+      const hours = Math.max(0, parseInt(inp.value) || 0);
+      inp.value = String(hours);
+
+      inp.className = `w-9 h-8 text-center rounded-lg text-xs transition duration-150 border-0 outline-none focus:ring-2 focus:ring-blue-600 focus:scale-105 cursor-pointer font-bold ${
+        hours === 0 ? 'bg-slate-100 text-gray-400' :
+        hours <= 4 ? 'bg-emerald-500 text-white font-bold' :
+        hours <= 6 ? 'bg-amber-500 text-white font-bold' :
+        'bg-blue-600 text-white font-bold'
+      }`;
+
+      // If selected day matches, sync daily select
+      if (parseInt(daySelect.value) === day) {
+        const selectEl = document.querySelector(`.daily-hour-select[data-teacher-id="${teacherId}"]`) as HTMLSelectElement;
+        if (selectEl) {
+          selectEl.value = String(Math.min(8, hours));
+          styleDropdown(selectEl, hours);
+        }
+        const todaySalarySpan = document.querySelector(`.daily-salary-text[data-teacher-id="${teacherId}"]`);
+        if (todaySalarySpan) todaySalarySpan.textContent = formatIDR(hours * HOURLY_RATE);
+      }
+
+      recalculateTeacherTotals(teacherId);
+      await saveTeacherAttendance(teacherId, day, hours);
+    });
+  });
+</script>

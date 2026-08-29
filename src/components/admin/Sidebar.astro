@@ -1,0 +1,125 @@
+---
+interface Props {
+  user: {
+    id: string;
+    email: string;
+    full_name: string;
+    role: string;
+  };
+}
+
+const { user } = Astro.props;
+const currentPath = Astro.url.pathname;
+
+const menuItems = [
+  { name: 'Dashboard', href: '/admin', icon: '📊' },
+  { name: 'Data Guru', href: '/admin/teachers', icon: '👨‍🏫' },
+  { name: 'Absensi Guru', href: '/admin/attendance', icon: '📝' },
+  { name: 'Rekap Gaji', href: '/admin/salary', icon: '💰' },
+  { name: 'Berita', href: '/admin/news', icon: '📰' },
+  { name: 'Pengumuman', href: '/admin/announcements', icon: '📢' },
+  { name: 'Pesan Masuk', href: '/admin/messages', icon: '✉️' },
+];
+---
+
+<!-- Backdrop Overlay for Mobile Drawer -->
+<div 
+  id="sidebarBackdrop" 
+  class="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 hidden md:hidden transition-opacity"
+></div>
+
+<!-- Sidebar Container: Fixed Drawer on Mobile, Static on Desktop -->
+<aside 
+  id="adminSidebar"
+  class="fixed inset-y-0 left-0 z-50 w-72 bg-blue-950 text-white flex flex-col justify-between border-r border-blue-900 shadow-2xl md:shadow-xl flex-shrink-0 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out md:static md:w-64 md:z-auto"
+>
+  <div class="flex-1 overflow-y-auto">
+    <!-- Logo & Brand Header with Mobile Close Button -->
+    <div class="p-5 sm:p-6 border-b border-blue-900/80 flex items-center justify-between">
+      <a href="/admin" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 bg-yellow-400 text-blue-950 rounded-xl flex items-center justify-center font-bold text-xl shadow-md group-hover:scale-105 transition">
+          ✈️
+        </div>
+        <div>
+          <h2 class="font-extrabold text-base tracking-tight text-white leading-tight">Admin Portal</h2>
+          <p class="text-[11px] text-blue-300">SMK Penerbangan</p>
+        </div>
+      </a>
+
+      <!-- Tombol Tutup Mobile (X) -->
+      <button 
+        type="button" 
+        id="closeSidebarBtn" 
+        class="md:hidden w-8 h-8 rounded-lg bg-blue-900 text-blue-200 hover:text-white flex items-center justify-center text-lg font-bold transition cursor-pointer"
+        aria-label="Tutup Menu"
+      >
+        ✕
+      </button>
+    </div>
+    
+    <!-- Nav Menu Items -->
+    <nav class="p-4">
+      <ul class="space-y-1.5">
+        {menuItems.map(item => {
+          const isActive = currentPath === item.href || (item.href !== '/admin' && currentPath.startsWith(item.href));
+          return (
+            <li>
+              <a 
+                href={item.href} 
+                class={`sidebar-link flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition duration-150 ${
+                  isActive 
+                    ? 'bg-blue-800 text-yellow-300 font-bold shadow-sm' 
+                    : 'text-blue-200 hover:text-white hover:bg-blue-900/60'
+                }`}
+              >
+                <span class="text-lg">{item.icon}</span>
+                <span>{item.name}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  </div>
+  
+  <!-- User Profile & Logout Bottom Box -->
+  <div class="p-4 border-t border-blue-900/80 bg-blue-950/90 flex-shrink-0">
+    <div class="flex items-center gap-3 mb-3 p-2 bg-blue-900/40 rounded-xl border border-blue-800/40">
+      <div class="w-9 h-9 bg-yellow-400 text-blue-950 font-bold rounded-lg flex items-center justify-center text-sm flex-shrink-0">
+        {user?.full_name?.charAt(0) || 'A'}
+      </div>
+      <div class="overflow-hidden min-w-0">
+        <p class="text-xs font-bold text-white truncate">{user?.full_name || 'Admin'}</p>
+        <p class="text-[11px] text-blue-300 truncate">{user?.email || 'admin@smkpenerbangan.sch.id'}</p>
+      </div>
+    </div>
+    <button 
+      id="logoutBtn" 
+      class="w-full bg-red-600/90 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl transition text-xs flex items-center justify-center gap-1.5 shadow cursor-pointer"
+    >
+      <span>Keluar (Logout)</span>
+      <span>🚪</span>
+    </button>
+  </div>
+</aside>
+
+<script>
+  const sidebar = document.getElementById('adminSidebar');
+  const backdrop = document.getElementById('sidebarBackdrop');
+  const closeBtn = document.getElementById('closeSidebarBtn');
+
+  function closeMobileSidebar() {
+    sidebar?.classList.add('-translate-x-full');
+    backdrop?.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  closeBtn?.addEventListener('click', closeMobileSidebar);
+  backdrop?.addEventListener('click', closeMobileSidebar);
+
+  // Logout Handler
+  document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/login';
+  });
+</script>

@@ -1,0 +1,114 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import SalaryTable from '../../../../components/admin/SalaryTable.astro';
+import { supabaseAdmin } from '../../../../lib/supabase';
+
+const { month = '1', year = '2026' } = Astro.params;
+const monthNum = parseInt(month);
+const yearNum = parseInt(year);
+
+const monthNames = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
+const selectedMonthName = monthNames[monthNum - 1] || 'Januari';
+const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+---
+
+<AdminLayout title={`Rekap Gaji Guru - ${selectedMonthName} ${yearNum}`}>
+  <div class="space-y-8 max-w-7xl mx-auto">
+    <!-- Header & Action Controls -->
+    <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col lg:flex-row lg:items-center justify-between gap-6 print:hidden">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold uppercase tracking-wider mb-2">
+          <span>💰</span>
+          <span>Sistem Honorarium & Gaji Guru</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-black text-gray-900">
+          Rekap Honor Guru: {selectedMonthName} {yearNum}
+        </h1>
+        <p class="text-gray-500 text-xs sm:text-sm mt-1">
+          Dihitung otomatis dari absensi mengajar di database: <strong class="text-emerald-700">Total Jam × Rp 5.000 / Jam</strong>.
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <a 
+          href={`/admin/attendance?month=${monthNum}&year=${yearNum}`}
+          class="bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold px-4 py-2.5 rounded-2xl text-xs sm:text-sm transition flex items-center gap-2 border border-blue-200"
+        >
+          <span>📝</span>
+          <span>Buka Presensi Bulan Ini</span>
+        </a>
+        <a 
+          href="/admin/teachers"
+          class="bg-slate-100 hover:bg-slate-200 text-gray-800 font-bold px-4 py-2.5 rounded-2xl text-xs sm:text-sm transition flex items-center gap-2"
+        >
+          <span>👨‍🏫</span>
+          <span>Kelola Guru</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Month & Year Filter Selector Tabs (Hidden in Print) -->
+    <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-100 space-y-4 print:hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+        <div>
+          <span class="text-xs font-bold text-gray-700 uppercase tracking-wider block">
+            🗓️ Pilih Periode Gaji Bulanan:
+          </span>
+          <span class="text-xs text-gray-400">Pilih bulan dan tahun untuk melihat rekapitulasi data gaji.</span>
+        </div>
+        
+        <!-- Year Selector Dropdown -->
+        <div class="flex items-center gap-2">
+          <label for="yearSelectorSalary" class="text-xs font-bold text-gray-600">Tahun:</label>
+          <select 
+            id="yearSelectorSalary"
+            class="bg-slate-50 border border-gray-200 text-gray-900 font-bold text-xs rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer"
+          >
+            {years.map(y => (
+              <option value={y} selected={y === yearNum}>{y}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <!-- Month Tabs -->
+      <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 sm:gap-2">
+        {monthNames.map((name, idx) => {
+          const mNum = idx + 1;
+          const isSelected = mNum === monthNum;
+          return (
+            <a 
+              href={`/admin/salary/${mNum}/${yearNum}`}
+              class={`py-2.5 px-1 text-center rounded-2xl text-xs font-bold transition-all ${
+                isSelected 
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 scale-105' 
+                  : 'bg-slate-50 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+              }`}
+            >
+              {name.substring(0, 3)}
+            </a>
+          );
+        })}
+      </div>
+    </div>
+
+    <!-- Salary Table Component (includes Chart, Summary Cards, and Detailed Table) -->
+    <SalaryTable month={monthNum} year={yearNum} />
+  </div>
+</AdminLayout>
+
+<script>
+  const yearSel = document.getElementById('yearSelectorSalary') as HTMLSelectElement;
+  yearSel?.addEventListener('change', () => {
+    const selectedYear = yearSel.value;
+    const currentPathParts = window.location.pathname.split('/').filter(Boolean);
+    const month = currentPathParts[2] || '1';
+    window.location.href = `/admin/salary/${month}/${selectedYear}`;
+  });
+</script>

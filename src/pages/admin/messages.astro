@@ -1,0 +1,394 @@
+---
+export const prerender = false;
+
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { supabaseAdmin } from '../../lib/supabase';
+
+// Ambil semua pesan masuk dari Supabase
+const { data: messages, error } = await supabaseAdmin
+  .from('messages')
+  .select('*')
+  .order('created_at', { ascending: false });
+
+const unreadCount = messages?.filter(m => !m.is_read).length || 0;
+---
+
+<AdminLayout title="Pesan Masuk">
+  <div class="space-y-6 sm:space-y-8 max-w-7xl mx-auto">
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
+      <div class="relative z-10 space-y-2">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-yellow-300 text-xs font-bold uppercase tracking-wider">
+          <span>✉️</span>
+          <span>Buku Tamu & Formulir Kontak</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          Pesan Masuk Pengunjung
+        </h1>
+        <p class="text-blue-100 text-xs sm:text-sm max-w-xl font-light">
+          Kelola pertanyaan, konsultasi calon taruna/wali murid, dan masukan dari formulir kontak website.
+        </p>
+      </div>
+
+      <div class="relative z-10 flex flex-wrap items-center gap-3">
+        <div class="bg-white/10 border border-white/20 px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2">
+          <span>📬 Total Pesan: <strong class="text-yellow-300">{messages?.length || 0}</strong></span>
+          <span>•</span>
+          <span>🔴 Belum Dibaca: <strong class="text-red-300">{unreadCount}</strong></span>
+        </div>
+      </div>
+      <div class="absolute -right-6 -bottom-6 text-8xl opacity-10 pointer-events-none">
+        ✉️
+      </div>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-xs border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="w-full sm:w-80 relative">
+        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400 text-sm">🔍</span>
+        <input 
+          type="text" 
+          id="msgSearchInput"
+          placeholder="Cari pengirim, email, atau isi pesan..." 
+          class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-gray-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-blue-600 transition"
+        />
+      </div>
+
+      <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+        <button 
+          type="button" 
+          class="filter-status-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-blue-900 text-white cursor-pointer" 
+          data-status="all"
+        >
+          Semua ({messages?.length || 0})
+        </button>
+        <button 
+          type="button" 
+          class="filter-status-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer" 
+          data-status="unread"
+        >
+          🔴 Belum Dibaca ({unreadCount})
+        </button>
+        <button 
+          type="button" 
+          class="filter-status-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer" 
+          data-status="read"
+        >
+          ⚪ Sudah Dibaca ({(messages?.length || 0) - unreadCount})
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages Table -->
+    <div class="bg-white rounded-3xl shadow-xs border border-gray-100 overflow-hidden">
+      {(!messages || messages.length === 0) ? (
+        <div class="text-center py-16 p-6 space-y-3">
+          <span class="text-5xl block">📭</span>
+          <h3 class="font-bold text-gray-800 text-lg">Kotak Masuk Kosong</h3>
+          <p class="text-gray-500 text-xs max-w-sm mx-auto">
+            Belum ada pesan yang dikirimkan oleh pengunjung melalui halaman kontak.
+          </p>
+        </div>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm" id="messagesTable">
+            <thead>
+              <tr class="bg-blue-950 text-white font-bold text-xs uppercase tracking-wider">
+                <th class="py-4 px-4 text-center w-12">No</th>
+                <th class="py-4 px-4 w-28">Status</th>
+                <th class="py-4 px-4 min-w-[200px]">Pengirim & Kontak</th>
+                <th class="py-4 px-4 min-w-[280px]">Subjek & Cuplikan Pesan</th>
+                <th class="py-4 px-4 w-36">Waktu Masuk</th>
+                <th class="py-4 px-4 text-center w-36">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 text-xs sm:text-sm" id="messagesTbody">
+              {messages.map((item, idx) => {
+                const formattedDate = new Date(item.created_at).toLocaleDateString('id-ID', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric'
+                });
+                const formattedTime = new Date(item.created_at).toLocaleTimeString('id-ID', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+
+                return (
+                  <tr 
+                    class={`hover:bg-blue-50/40 transition msg-row ${!item.is_read ? 'bg-blue-50/20 font-semibold' : ''}`}
+                    data-name={item.name?.toLowerCase() || ''}
+                    data-email={item.email?.toLowerCase() || ''}
+                    data-subject={item.subject?.toLowerCase() || ''}
+                    data-msg={item.message?.toLowerCase() || ''}
+                    data-status={item.is_read ? 'read' : 'unread'}
+                    id={`row-${item.id}`}
+                  >
+                    <td class="py-4 px-4 text-center text-gray-400 font-normal">{idx + 1}</td>
+                    <td class="py-4 px-4">
+                      {item.is_read ? (
+                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+                          <span>⚪</span>
+                          <span>Dibaca</span>
+                        </span>
+                      ) : (
+                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-blue-800 bg-blue-100 border border-blue-200 px-2.5 py-1 rounded-full shadow-2xs">
+                          <span>🔵</span>
+                          <span>Baru</span>
+                        </span>
+                      )}
+                    </td>
+                    <td class="py-4 px-4 space-y-0.5">
+                      <p class="font-bold text-gray-900 text-sm">{item.name}</p>
+                      <a href={`mailto:${item.email}`} class="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                        <span>✉️</span>
+                        <span>{item.email}</span>
+                      </a>
+                    </td>
+                    <td class="py-4 px-4 space-y-1">
+                      <p class="font-bold text-gray-800 line-clamp-1">{item.subject || 'Tanpa Subjek'}</p>
+                      <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed font-normal">
+                        {item.message}
+                      </p>
+                    </td>
+                    <td class="py-4 px-4 text-gray-500 text-xs font-normal">
+                      <p class="font-medium text-gray-700">{formattedDate}</p>
+                      <p class="text-[11px] text-gray-400">{formattedTime} WIB</p>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                      <div class="flex items-center justify-center gap-1.5">
+                        <button 
+                          type="button" 
+                          class="view-msg-btn p-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 transition cursor-pointer"
+                          title="Buka Pesan"
+                          data-id={item.id}
+                          data-name={item.name}
+                          data-email={item.email}
+                          data-subject={item.subject || 'Tanpa Subjek'}
+                          data-message={item.message}
+                          data-date={`${formattedDate}, ${formattedTime} WIB`}
+                          data-read={item.is_read ? 'true' : 'false'}
+                        >
+                          👁️
+                        </button>
+                        <a 
+                          href={`mailto:${item.email}?subject=Re: ${encodeURIComponent(item.subject || 'Pertanyaan SMK Penerbangan')}`}
+                          class="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition"
+                          title="Balas via Email"
+                        >
+                          ↩️
+                        </a>
+                        <button 
+                          type="button" 
+                          class="delete-msg-btn p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 transition cursor-pointer"
+                          title="Hapus Pesan"
+                          data-id={item.id}
+                          data-name={item.name}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+
+    <!-- MODAL BACA PESAN DETAIL -->
+    <div id="readMsgModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl border border-gray-100 space-y-6 max-h-[90vh] overflow-y-auto animate-in zoom-in duration-150">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">✉️</span>
+            <div>
+              <h3 class="text-base sm:text-lg font-extrabold text-gray-900" id="msgModalSubject">
+                Detail Pesan Masuk
+              </h3>
+              <p class="text-xs text-gray-400" id="msgModalDate"></p>
+            </div>
+          </div>
+          <button type="button" id="closeMsgModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1 cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <!-- Sender Profile Info -->
+        <div class="p-4 bg-slate-50 rounded-2xl border border-gray-200/80 flex items-center justify-between gap-4">
+          <div class="space-y-0.5">
+            <p class="text-xs text-gray-400 uppercase font-bold tracking-wider">Pengirim</p>
+            <p class="text-sm font-bold text-gray-900" id="msgModalSender"></p>
+            <p class="text-xs text-blue-700 font-medium" id="msgModalEmail"></p>
+          </div>
+          <a 
+            id="modalReplyEmailBtn" 
+            href="#" 
+            class="bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow flex items-center gap-1.5 transition"
+          >
+            <span>↩️ Balas Email</span>
+          </a>
+        </div>
+
+        <!-- Message Body -->
+        <div class="space-y-2">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider">
+            Isi Pesan:
+          </label>
+          <div class="p-5 bg-blue-50/30 rounded-2xl border border-blue-100 text-gray-800 text-sm leading-relaxed whitespace-pre-line font-normal" id="msgModalContent">
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button 
+            type="button" 
+            id="okMsgModalBtn"
+            class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs sm:text-sm transition cursor-pointer shadow"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 hidden px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold transition-all"></div>
+  </div>
+</AdminLayout>
+
+<script>
+  const readModal = document.getElementById('readMsgModal')!;
+  const closeBtn = document.getElementById('closeMsgModalBtn');
+  const okBtn = document.getElementById('okMsgModalBtn');
+
+  const modalSubject = document.getElementById('msgModalSubject')!;
+  const modalDate = document.getElementById('msgModalDate')!;
+  const modalSender = document.getElementById('msgModalSender')!;
+  const modalEmail = document.getElementById('msgModalEmail')!;
+  const modalContent = document.getElementById('msgModalContent')!;
+  const modalReplyBtn = document.getElementById('modalReplyEmailBtn') as HTMLAnchorElement;
+
+  const toast = document.getElementById('toast')!;
+  let toastTimer: any = null;
+
+  function showToast(msg: string, isError = false) {
+    clearTimeout(toastTimer);
+    toast.className = `fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold transition-all ${
+      isError ? 'bg-red-600 text-white' : 'bg-slate-900 text-yellow-300 border border-yellow-400/40'
+    }`;
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+
+    toastTimer = setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 2500);
+  }
+
+  function closeReadModal() {
+    readModal.classList.add('hidden');
+  }
+  closeBtn?.addEventListener('click', closeReadModal);
+  okBtn?.addEventListener('click', closeReadModal);
+
+  // View & Mark As Read Handler
+  document.querySelectorAll('.view-msg-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id') || '';
+      const name = btn.getAttribute('data-name') || '';
+      const email = btn.getAttribute('data-email') || '';
+      const subject = btn.getAttribute('data-subject') || '';
+      const message = btn.getAttribute('data-message') || '';
+      const date = btn.getAttribute('data-date') || '';
+      const isRead = btn.getAttribute('data-read') === 'true';
+
+      modalSubject.textContent = subject;
+      modalDate.textContent = '📅 ' + date;
+      modalSender.textContent = name;
+      modalEmail.textContent = email;
+      modalContent.textContent = message;
+      modalReplyBtn.href = `mailto:${email}?subject=Re: ${encodeURIComponent(subject)}`;
+
+      readModal.classList.remove('hidden');
+
+      // Jika belum dibaca, tandai sudah dibaca di database
+      if (!isRead && id) {
+        try {
+          await fetch('/api/messages', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, is_read: true })
+          });
+          btn.setAttribute('data-read', 'true');
+        } catch (e) {}
+      }
+    });
+  });
+
+  // Delete Message Handler
+  document.querySelectorAll('.delete-msg-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-id')!;
+      const name = btn.getAttribute('data-name') || 'pesan ini';
+
+      if (confirm(`Apakah Anda yakin ingin menghapus pesan dari "${name}"?`)) {
+        try {
+          const res = await fetch(`/api/messages?id=${id}`, { method: 'DELETE' });
+          const data = await res.json();
+
+          if (res.ok && data.success) {
+            showToast('✅ Pesan berhasil dihapus!');
+            const row = document.getElementById(`row-${id}`);
+            if (row) row.remove();
+          } else {
+            showToast('❌ Gagal: ' + (data.error || 'Terjadi kesalahan'), true);
+          }
+        } catch (err) {
+          showToast('❌ Gangguan koneksi ke server', true);
+        }
+      }
+    });
+  });
+
+  // Search & Filter
+  const searchInput = document.getElementById('msgSearchInput') as HTMLInputElement;
+  const filterBtns = document.querySelectorAll('.filter-status-btn');
+  let activeStatus = 'all';
+
+  function filterMessages() {
+    const q = searchInput?.value.toLowerCase().trim() || '';
+    document.querySelectorAll('.msg-row').forEach(row => {
+      const tr = row as HTMLElement;
+      const name = tr.getAttribute('data-name') || '';
+      const email = tr.getAttribute('data-email') || '';
+      const subject = tr.getAttribute('data-subject') || '';
+      const msg = tr.getAttribute('data-msg') || '';
+      const status = tr.getAttribute('data-status') || '';
+
+      const matchQ = !q || name.includes(q) || email.includes(q) || subject.includes(q) || msg.includes(q);
+      const matchStatus = activeStatus === 'all' || status === activeStatus;
+
+      if (matchQ && matchStatus) {
+        tr.classList.remove('hidden');
+      } else {
+        tr.classList.add('hidden');
+      }
+    });
+  }
+
+  searchInput?.addEventListener('input', filterMessages);
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => {
+        b.className = 'filter-status-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-slate-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer';
+      });
+      btn.className = 'filter-status-btn px-3 py-1.5 rounded-xl text-xs font-bold transition bg-blue-900 text-white cursor-pointer';
+
+      activeStatus = btn.getAttribute('data-status') || 'all';
+      filterMessages();
+    });
+  });
+</script>
